@@ -8,6 +8,7 @@ window.SITE_CONFIG = {
   },
   brand: {
     name: "JoyAI-RA",
+    logo: "https://joyra.s3.cn-north-1.jdcloud-oss.com/assets/logo.f0f088d3.png",
     tagline: "Local Rebuild Template"
   },
   header: {
