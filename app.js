@@ -56,6 +56,7 @@ function renderPage(config) {
           "benchmark-section"
         )}
         ${renderVideosSection(config.videos)}
+        ${renderFeatureMediaSection(config.moreIntelligence, "more-intelligence")}
         ${renderCitation(config.citation)}
       </main>
     </div>
@@ -148,12 +149,20 @@ function renderHeader(config) {
 }
 
 function renderHero(hero) {
+  const heroTitleLabel = hero.titleImage?.alt || hero.title || "";
+  const heroTitleClassName = hero.titleImage?.src ? "hero-title has-image" : "hero-title";
+  const heroMediaShellClassName = isImageMedia(hero.video)
+    ? "hero-video-shell has-image"
+    : "hero-video-shell";
+
   return `
     <section class="hero" id="hero">
       <div class="section-shell">
         <div class="hero-stack reveal">
           ${hero.eyebrow ? `<span class="hero-kicker">${hero.eyebrow}</span>` : ""}
-          <h1 class="hero-title">${renderHeroTitle(hero.title)}</h1>
+          <h1 class="${heroTitleClassName}" aria-label="${escapeText(heroTitleLabel)}">
+            ${renderHeroTitle(hero.title, hero.titleImage)}
+          </h1>
           ${hero.subtitle ? `<p class="hero-subtitle">${hero.subtitle}</p>` : ""}
           ${
             hero.actions?.length
@@ -178,21 +187,41 @@ function renderHero(hero) {
               : ""
           }
           <div class="hero-media">
-            <div class="hero-video-shell">
-              ${renderVideo(hero.video, {
+            <div class="${heroMediaShellClassName}">
+              ${renderMedia(hero.video, {
                 autoplay: true,
                 controls: true,
-                className: "hero-video"
+                className: "hero-video",
+                loading: "eager"
               })}
             </div>
           </div>
+          ${
+            hero.videoDescription
+              ? `<div class="hero-description">${hero.videoDescription}</div>`
+              : ""
+          }
         </div>
       </div>
     </section>
   `;
 }
 
-function renderHeroTitle(title) {
+function renderHeroTitle(title, titleImage) {
+  if (titleImage?.src) {
+    const imageAlt = titleImage.alt || title || "";
+
+    return `
+      <img
+        class="hero-title-image"
+        src="${escapeText(titleImage.src)}"
+        alt="${escapeText(imageAlt)}"
+        loading="eager"
+        decoding="async"
+      />
+    `;
+  }
+
   const versionMatch = title.match(/^(.*?)(\s+\d+(?:\.\d+)+(?:.*)?)$/);
 
   if (versionMatch) {
@@ -205,6 +234,67 @@ function renderHeroTitle(title) {
 }
 
 function renderBenchmarkSection(section, id, extraClassName = "") {
+  if (Array.isArray(section?.tabs) && section.tabs.length) {
+    const tabGroup = `benchmark-${id}`;
+
+    return `
+      <section class="section ${extraClassName}" id="${id}">
+        <div class="section-shell">
+          ${renderSectionHeader(section.title, section.description, { centered: true })}
+          <div class="tabs tabs-centered reveal">
+            ${section.tabs
+              .map(
+                (tab, index) => `
+                  <button
+                    class="tab-trigger ${index === 0 ? "is-active" : ""}"
+                    type="button"
+                    data-tab-trigger
+                    data-tab-group="${tabGroup}"
+                    data-tab-target="${tab.key}"
+                  >
+                    ${tab.label}
+                  </button>
+                `
+              )
+              .join("")}
+          </div>
+          ${section.tabs
+            .map(
+              (tab, index) => `
+                <section
+                  class="tab-panel"
+                  data-tab-panel="${tabGroup}"
+                  data-tab-key="${tab.key}"
+                  ${index === 0 ? "" : "hidden"}
+                >
+                  <article class="card simulation-panel reveal">
+                    <div class="chart-card-head simulation-panel-head">
+                      <h3>${tab.label}</h3>
+                      ${tab.intro ? `<p>${tab.intro}</p>` : ""}
+                    </div>
+                    <div class="simulation-figures ${tab.figures.length > 1 ? "two-col" : ""}">
+                      ${tab.figures
+                        .map(
+                          (figure) => `
+                            <div class="simulation-benchmark-figure">
+                              <div class="benchmark-figure-frame">
+                                ${renderBenchmarkSvg(figure)}
+                              </div>
+                            </div>
+                          `
+                        )
+                        .join("")}
+                    </div>
+                  </article>
+                </section>
+              `
+            )
+            .join("")}
+        </div>
+      </section>
+    `;
+  }
+
   return `
     <section class="section ${extraClassName}" id="${id}">
       <div class="section-shell">
@@ -454,6 +544,29 @@ function renderVideosSection(section) {
             `
           )
           .join("")}
+      </div>
+    </section>
+  `;
+}
+
+function renderFeatureMediaSection(section, id) {
+  if (!section?.media?.src) {
+    return "";
+  }
+
+  return `
+    <section class="section feature-media-section" id="${id}">
+      <div class="section-shell">
+        ${renderSectionHeader(section.title, section.description, { centered: true })}
+        <article class="card videos-panel reveal">
+          <div class="video-single-frame">
+            ${renderMedia(section.media, {
+              autoplay: true,
+              controls: true,
+              className: "video-single-player"
+            })}
+          </div>
+        </article>
       </div>
     </section>
   `;
@@ -1103,12 +1216,31 @@ function renderChartCard(chart, options = {}) {
   `;
 }
 
-function renderVideo(video, options) {
+function renderMedia(media, options) {
+  if (!media?.src) {
+    return "";
+  }
+
+  if (isImageMedia(media)) {
+    const title = media.title || "";
+    const loading = options.loading || "lazy";
+
+    return `
+      <img
+        src="${escapeText(media.src)}"
+        alt="${escapeText(title)}"
+        loading="${loading}"
+        decoding="async"
+        class="${options.className || ""} media-image"
+      />
+    `;
+  }
+
   const autoplay = options.autoplay ? "autoplay" : "";
   const controls = options.controls ? "controls" : "";
   const id = options.id ? `id="${options.id}"` : "";
-  const poster = video.poster ? `poster="${video.poster}"` : "";
-  const title = video.title || "";
+  const poster = media.poster ? `poster="${escapeText(media.poster)}"` : "";
+  const title = media.title || "";
 
   return `
     <video
@@ -1120,12 +1252,16 @@ function renderVideo(video, options) {
       loop
       playsinline
       preload="metadata"
-      aria-label="${title}"
+      aria-label="${escapeText(title)}"
       class="${options.className || ""}"
     >
-      <source src="${video.src}" />
+      <source src="${escapeText(media.src)}" />
     </video>
   `;
+}
+
+function renderVideo(video, options) {
+  return renderMedia(video, options);
 }
 
 function bindShowcase() {
@@ -1196,6 +1332,18 @@ function bindTabs() {
       trigger.classList.add("is-active");
     });
   });
+}
+
+function isImageMedia(media) {
+  if (!media?.src) {
+    return false;
+  }
+
+  if (media.type === "image") {
+    return true;
+  }
+
+  return /\.(png|jpe?g|webp|gif|avif|svg)(\?.*)?$/i.test(media.src);
 }
 
 function bindHeaderState() {
